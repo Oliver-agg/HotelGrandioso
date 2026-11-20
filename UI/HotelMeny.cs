@@ -19,6 +19,8 @@ public class HotelMenu
             Console.WriteLine();
             Console.WriteLine("1. Boka rum");
             Console.WriteLine("2. Visa alla rum");
+            Console.WriteLine("3. Visa bokningar");
+            Console.WriteLine("4. Avboka");
             Console.WriteLine("0. Avsluta");
             Console.WriteLine();
             Console.Write("Val: ");
@@ -32,6 +34,12 @@ public class HotelMenu
                     break;
                 case "2":
                     ShowAllRooms();
+                    break;
+                case "3":
+                    ShowAllBookings();
+                    break;
+                case "4":
+                    CancelBooking();
                     break;
                 case "0":
                     running = false;
@@ -58,6 +66,7 @@ public class HotelMenu
     private void BookRoom()
     {
         Console.WriteLine("--- Boka rum ---");
+
         Console.Write("Gästnamn: ");
         string? name = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(name))
@@ -102,6 +111,59 @@ public class HotelMenu
 
         Console.WriteLine();
         Console.WriteLine($"Bokning bekräftad! Totalt: {total.ToString("N0", sv)} kr ({nights} nätter × {room.PricePerNight.ToString("N0", sv)} kr)");
+    }
+
+    private bool ShowAllBookings()
+    {
+        var bookings = _repo.GetAllBookings();
+
+        if (bookings.Count == 0)
+        {
+            Console.WriteLine("Det finns inga bokningar.");
+            return false;
+        }
+
+        Console.WriteLine("Alla bokningar:");
+        var sv = new CultureInfo("sv-SE");
+
+        foreach (Booking b in bookings)
+        {
+            int nights = b.CheckOut.DayNumber - b.CheckIn.DayNumber;
+            decimal total = _repo.CalculateTotalPrice(b.Room, b.CheckIn, b.CheckOut);
+
+            Console.WriteLine($"[{b.Id}] {b.Guest.Name}, rum {b.Room.RoomNumber}, {b.CheckIn:yyyy-MM-dd} till {b.CheckOut:yyyy-MM-dd} ({nights} nätter, {total.ToString("N0", sv)} kr)");
+        }
+
+        return true;
+    }
+
+    private void CancelBooking()
+    {
+        Console.WriteLine("--- Avboka ---");
+
+        if (!ShowAllBookings())
+        {
+            return;
+        }
+
+        Console.WriteLine();
+        Console.Write("Boknings-id att avboka: ");
+        string? text = Console.ReadLine();
+
+        if (!int.TryParse(text, out int bookingId))
+        {
+            Console.WriteLine("Id måste vara ett tal.");
+            return;
+        }
+
+        if (_repo.CancelBooking(bookingId))
+        {
+            Console.WriteLine("Bokningen är avbokad.");
+        }
+        else
+        {
+            Console.WriteLine($"Ingen bokning med id {bookingId} hittades.");
+        }
     }
 
     private DateOnly ReadDate(string prompt)
