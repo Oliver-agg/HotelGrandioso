@@ -21,6 +21,7 @@ public class HotelMenu
             Console.WriteLine("2. Visa alla rum");
             Console.WriteLine("3. Visa bokningar");
             Console.WriteLine("4. Avboka");
+            Console.WriteLine("5. Sök efter lediga rum");
             Console.WriteLine("0. Avsluta");
             Console.WriteLine();
             Console.Write("Val: ");
@@ -40,6 +41,9 @@ public class HotelMenu
                     break;
                 case "4":
                     CancelBooking();
+                    break;
+                case "5":
+                    SearchAvailableRooms();
                     break;
                 case "0":
                     running = false;
@@ -111,7 +115,12 @@ public class HotelMenu
             return;
         }
 
-        _repo.AddBooking(name, room, checkIn, checkOut, email, phone);
+        Booking? booking = _repo.AddBooking(name, room, checkIn, checkOut, email, phone);
+        if (booking == null)
+        {
+            Console.WriteLine($"Rum {roomNumber} är redan bokat de datumen.");
+            return;
+        }
 
         int nights = checkOut.DayNumber - checkIn.DayNumber;
         decimal total = _repo.CalculateTotalPrice(room, checkIn, checkOut);
@@ -187,6 +196,38 @@ public class HotelMenu
             }
 
             Console.WriteLine("Ogiltigt datum. Skriv så här: 2026-12-01");
+        }
+    }
+    private void SearchAvailableRooms()
+    {
+        Console.WriteLine("\n--- Sök efter lediga rum ---");
+
+        DateOnly from = ReadDate("Ange incheckningsdatum (yyyy-MM-dd): ");
+        DateOnly to = ReadDate("Ange utcheckningsdatum (yyyy-MM-dd): ");
+
+        if (to <= from)
+        {
+            Console.WriteLine("Utcheckningsdatum måste vara efter incheckningsdatum.");
+            return;
+        }
+
+        List<Rooms> availableRooms = _repo.GetAvailableRooms(from, to);
+
+        if (availableRooms.Count == 0)
+        {
+            Console.WriteLine("Det finns inga lediga rum under den perioden.");
+            return;
+        }
+
+        Console.WriteLine("\nLediga rum:");
+
+        foreach (var room in availableRooms)
+        {
+            Console.WriteLine(
+                $"Rum {room.RoomNumber} | " +
+                $"{room.RoomType.Name} | " +
+                $"{room.SizeM2} m² | " +
+                $"{room.PricePerNight:N0} kr/natt");
         }
     }
 }

@@ -22,9 +22,24 @@ public class HotelRepository
             .Include(r => r.RoomType)
             .FirstOrDefault(r => r.RoomNumber == roomNumber);
     }
-
-    public Booking AddBooking(string guestName, Rooms room, DateOnly checkIn, DateOnly checkOut, string? email = null, string? phoneNumber = null)
+    public List<Rooms> GetAvailableRooms(DateOnly from, DateOnly to)
     {
+        return _db.Rooms
+            .Where(r => !_db.Bookings.Any(b =>
+                b.RoomId == r.Id &&
+                b.CheckIn < to &&
+                b.CheckOut > from))
+            .Include(r => r.RoomType)
+            .ToList();
+    }
+
+    public Booking? AddBooking(string guestName, Rooms room, DateOnly checkIn, DateOnly checkOut, string? email = null, string? phoneNumber = null)
+    {
+        if (!IsRoomAvailable(room.Id, checkIn, checkOut))
+        {
+            return null;
+        }
+
         Guest? guest = _db.Guests.FirstOrDefault(g => g.Name == guestName);
         if (guest == null)
         {
@@ -71,5 +86,14 @@ public class HotelRepository
         _db.Bookings.Remove(booking);
         _db.SaveChanges();
         return true;
+    }
+    public bool IsRoomAvailable(int roomId, DateOnly checkIn, DateOnly checkOut)
+    {
+        bool hasOverlap = _db.Bookings.Any(b =>
+            b.RoomId == roomId &&
+            b.CheckIn < checkOut &&
+            checkIn < b.CheckOut);
+
+        return !hasOverlap;
     }
 }
