@@ -4,5 +4,5 @@
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
 
-    public List<Rooms> Room { get; set; } = new();
+    public List<Rooms> Rooms { get; set; } = new();
 }

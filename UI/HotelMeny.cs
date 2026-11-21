@@ -75,6 +75,14 @@ public class HotelMenu
             return;
         }
 
+        Console.Write("E-post (valfritt, tryck Enter för att hoppa över): ");
+        string? email = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(email)) email = null;
+
+        Console.Write("Telefonnummer (valfritt, tryck Enter för att hoppa över): ");
+        string? phone = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(phone)) phone = null;
+
         DateOnly checkIn = ReadDate("Incheckning (YYYY-MM-DD): ");
         DateOnly checkOut = ReadDate("Utcheckning (YYYY-MM-DD): ");
 
@@ -103,7 +111,7 @@ public class HotelMenu
             return;
         }
 
-        _repo.AddBooking(name, room, checkIn, checkOut);
+        _repo.AddBooking(name, room, checkIn, checkOut, email, phone);
 
         int nights = checkOut.DayNumber - checkIn.DayNumber;
         decimal total = _repo.CalculateTotalPrice(room, checkIn, checkOut);

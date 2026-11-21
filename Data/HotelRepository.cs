@@ -23,12 +23,12 @@ public class HotelRepository
             .FirstOrDefault(r => r.RoomNumber == roomNumber);
     }
 
-    public Booking AddBooking(string guestName, Rooms room, DateOnly checkIn, DateOnly checkOut)
+    public Booking AddBooking(string guestName, Rooms room, DateOnly checkIn, DateOnly checkOut, string? email = null, string? phoneNumber = null)
     {
         Guest? guest = _db.Guests.FirstOrDefault(g => g.Name == guestName);
         if (guest == null)
         {
-            guest = new Guest { Name = guestName };
+            guest = new Guest { Name = guestName, Email = email, PhoneNumber = phoneNumber };
         }
 
         var booking = new Booking
