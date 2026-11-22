@@ -1,8 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
+
+// Repositoryt samlar allt databasarbete på ett ställe, så att menyn
+// slipper veta hur data hämtas och sparas.
 public class HotelRepository
 {
     private readonly HotelContext _db;
 
+    // Databasen skickas in utifrån i stället för att skapas här,
+    // så att Program.cs bestämmer när anslutningen öppnas och stängs.
     public HotelRepository(HotelContext db)
     {
         _db = db;
@@ -10,6 +15,10 @@ public class HotelRepository
 
     public List<Rooms> GetAllRooms()
     {
+        // Include hämtar rumstypen tillsammans med varje rum. Utan Include
+        // är room.RoomType null, och då går det inte att skriva ut typens namn.
+        // Vi sorterar på RoomNumber och inte på pris, eftersom SQLite lagrar
+        // decimal som text och inte kan sortera på det.
         return _db.Rooms
             .Include(r => r.RoomType)
             .OrderBy(r => r.RoomNumber)
@@ -18,12 +27,19 @@ public class HotelRepository
 
     public Rooms? GetRoomByNumber(int roomNumber)
     {
+        // FirstOrDefault ger null om rummet inte finns, i stället för att
+        // krascha. Menyn kontrollerar null och visar ett felmeddelande.
         return _db.Rooms
             .Include(r => r.RoomType)
             .FirstOrDefault(r => r.RoomNumber == roomNumber);
     }
+
     public List<Rooms> GetAvailableRooms(DateOnly from, DateOnly to)
     {
+        // Ett rum är ledigt om det INTE finns någon bokning på det rummet som
+        // överlappar perioden. Det är samma överlappsregel som i
+        // IsRoomAvailable, men här filtrerar vi fram alla lediga rum i stället
+        // för att svara ja eller nej på ett enskilt rum. Any blir EXISTS i SQL.
         return _db.Rooms
             .Where(r => !_db.Bookings.Any(b =>
                 b.RoomId == r.Id &&
@@ -36,17 +52,18 @@ public class HotelRepository
 
     public Booking? AddBooking(string guestName, Rooms room, DateOnly checkIn, DateOnly checkOut, string? email = null, string? phoneNumber = null)
     {
+        // Kontrollen sitter här, där bokningen sparas, och inte bara i menyn,
+        // så att den inte går att kringgå. Den kommer före gästen skapas, så
+        // att ingen gäst sparas när bokningen nekas. null betyder "nekad".
         if (!IsRoomAvailable(room.Id, checkIn, checkOut))
         {
             return null;
         }
 
-        Guest? guest = _db.Guests.FirstOrDefault(g => g.Name == guestName);
-        if (guest == null)
-        {
-            guest = new Guest { Name = guestName, Email = email, PhoneNumber = phoneNumber };
-        }
+        Guest guest = FindOrCreateGuest(guestName, email, phoneNumber);
 
+        // Vi sätter hela objekten (Guest, Room) och inte id-talen. Då fyller
+        // EF i GuestId och RoomId själv, och sparar en ny gäst automatiskt.
         var booking = new Booking
         {
             Guest = guest,
@@ -62,12 +79,16 @@ public class HotelRepository
 
     public decimal CalculateTotalPrice(Rooms room, DateOnly checkIn, DateOnly checkOut)
     {
+        // Priset räknas ut i C# och inte i databasen, eftersom SQLite lagrar
+        // decimal som text och inte kan räkna på det.
         int nights = checkOut.DayNumber - checkIn.DayNumber;
         return nights * room.PricePerNight;
     }
 
     public List<Booking> GetAllBookings()
     {
+        // Include hämtar gäst och rum tillsammans med varje bokning. Utan
+        // Include är booking.Guest och booking.Room null vid utskrift.
         return _db.Bookings
             .Include(b => b.Guest)
             .Include(b => b.Room)
@@ -77,6 +98,9 @@ public class HotelRepository
 
     public bool CancelBooking(int bookingId)
     {
+        // Find söker på primärnyckeln och ger null om bokningen inte finns.
+        // Vi returnerar true eller false så att menyn kan välja rätt meddelande
+        // utan att själv veta något om databasen.
         Booking? booking = _db.Bookings.Find(bookingId);
 
         if (booking == null)
@@ -88,13 +112,67 @@ public class HotelRepository
         _db.SaveChanges();
         return true;
     }
+
     public bool IsRoomAvailable(int roomId, DateOnly checkIn, DateOnly checkOut)
     {
+        // Rummet är upptaget om det finns någon bokning på just det rummet som
+        // överlappar. Vi använder < och inte <=, så att en gäst kan checka in
+        // samma dag som en annan checkar ut. Any blir EXISTS i SQL, så det är
+        // databasen som gör jobbet och inte C#.
         bool hasOverlap = _db.Bookings.Any(b =>
             b.RoomId == roomId &&
             b.CheckIn < checkOut &&
             checkIn < b.CheckOut);
 
         return !hasOverlap;
+    }
+
+    // NYTT: spa ---------------------------------------------------------
+
+    public List<Treatment> GetAllTreatments()
+    {
+        // Sorterat på Id (ett heltal), inte på pris, eftersom SQLite inte kan
+        // sortera decimal i databasen.
+        return _db.Treatments
+            .OrderBy(t => t.Id)
+            .ToList();
+    }
+
+    public Treatment? GetTreatmentById(int treatmentId)
+    {
+        // Find söker på primärnyckeln och ger null om behandlingen inte finns
+        return _db.Treatments.Find(treatmentId);
+    }
+
+    public SpaBooking AddSpaBooking(string guestName, Treatment treatment, DateOnly date)
+    {
+        // Gästen hämtas eller skapas på samma sätt som vid rumsbokning
+        Guest guest = FindOrCreateGuest(guestName, null, null);
+
+        // Hela objekten sätts, så fyller EF i GuestId och TreatmentId själv
+        var spaBooking = new SpaBooking
+        {
+            Guest = guest,
+            Treatment = treatment,
+            Date = date
+        };
+
+        _db.SpaBookings.Add(spaBooking);
+        _db.SaveChanges();
+        return spaBooking;
+    }
+
+    private Guest FindOrCreateGuest(string guestName, string? email, string? phoneNumber)
+    {
+        // Samma namn återanvänder gästen. Det är en avgränsning som nämns i
+        // README: två personer med samma namn slås ihop. Den nya gästen sparas
+        // inte här, utan följer med när bokningen sparas.
+        Guest? guest = _db.Guests.FirstOrDefault(g => g.Name == guestName);
+        if (guest == null)
+        {
+            guest = new Guest { Name = guestName, Email = email, PhoneNumber = phoneNumber };
+        }
+
+        return guest;
     }
 }

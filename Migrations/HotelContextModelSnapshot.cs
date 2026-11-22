@@ -14,7 +14,7 @@ partial class HotelContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261119121142_InitialCreate";
+    public override string LastMigrationId => "20261122152416_AddSpa";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -116,6 +116,51 @@ partial class HotelContextModelSnapshot : ModelSnapshot
                 b.ToTable("Rooms");
             });
 
+        modelBuilder.Entity("SpaBooking", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("INTEGER");
+
+                b.Property<DateOnly>("Date")
+                    .HasColumnType("TEXT");
+
+                b.Property<int>("GuestId")
+                    .HasColumnType("INTEGER");
+
+                b.Property<int>("TreatmentId")
+                    .HasColumnType("INTEGER");
+
+                b.HasKey("Id");
+
+                b.HasIndex("GuestId");
+
+                b.HasIndex("TreatmentId");
+
+                b.ToTable("SpaBookings");
+            });
+
+        modelBuilder.Entity("Treatment", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("INTEGER");
+
+                b.Property<int>("DurationMinutes")
+                    .HasColumnType("INTEGER");
+
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
+
+                b.Property<decimal>("Price")
+                    .HasColumnType("TEXT");
+
+                b.HasKey("Id");
+
+                b.ToTable("Treatments");
+            });
+
         modelBuilder.Entity("Booking", b =>
             {
                 b.HasOne("Guest", "Guest")
@@ -138,7 +183,7 @@ partial class HotelContextModelSnapshot : ModelSnapshot
         modelBuilder.Entity("Rooms", b =>
             {
                 b.HasOne("RoomType", "RoomType")
-                    .WithMany("Room")
+                    .WithMany("Rooms")
                     .HasForeignKey("RoomTypeId")
                     .OnDelete(DeleteBehavior.Cascade)
                     .IsRequired();
@@ -146,19 +191,45 @@ partial class HotelContextModelSnapshot : ModelSnapshot
                 b.Navigation("RoomType");
             });
 
+        modelBuilder.Entity("SpaBooking", b =>
+            {
+                b.HasOne("Guest", "Guest")
+                    .WithMany("SpaBookings")
+                    .HasForeignKey("GuestId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.HasOne("Treatment", "Treatment")
+                    .WithMany("SpaBookings")
+                    .HasForeignKey("TreatmentId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("Guest");
+
+                b.Navigation("Treatment");
+            });
+
         modelBuilder.Entity("Guest", b =>
             {
                 b.Navigation("Bookings");
+
+                b.Navigation("SpaBookings");
             });
 
         modelBuilder.Entity("RoomType", b =>
             {
-                b.Navigation("Room");
+                b.Navigation("Rooms");
             });
 
         modelBuilder.Entity("Rooms", b =>
             {
                 b.Navigation("Bookings");
+            });
+
+        modelBuilder.Entity("Treatment", b =>
+            {
+                b.Navigation("SpaBookings");
             });
 #pragma warning restore 612, 618
     }
