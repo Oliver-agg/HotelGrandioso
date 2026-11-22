@@ -1,7 +1,6 @@
 # Hotel Grandioso
 
-Hotel Grandioso är ett bokningssystem, byggt som en konsolapp. Programmet låter personalen boka rum, avboka, se alla rum, se alla bokningar och söka efter lediga rum.
-
+Hotel Grandioso är ett bokningssystem, byggt som en konsolapp. Programmet låter personalen boka rum, avboka, se alla rum, se alla bokningar, söka efter lediga rum och boka spabehandlingar.
 ## Teknik
 
 - C# konsolapp
@@ -17,6 +16,7 @@ Hotel Grandioso är ett bokningssystem, byggt som en konsolapp. Programmet låte
 - **Avboka:** en bokning tas bort via sitt id.
 - **Spärr mot dubbelbokning:** ett rum kan inte bokas om det redan är bokat under överlappande datum.
 - **Sök efter lediga rum:** välj ett datumintervall och se vilka rum som inte har någon överlappande bokning.
+- **Boka spabehandling:** välj en behandling och ett datum. Spabokningen kopplas till gästen.
 
 ## Köra projektet
 
@@ -36,7 +36,7 @@ Hotel Grandioso är ett bokningssystem, byggt som en konsolapp. Programmet låte
    dotnet run
    ```
 
-Databasen behöver inte skapas för hand. När programmet startar körs migrationerna automatiskt (`Database.Migrate()` i `Program.cs`), och därefter läggs de 15 rummen och de tre rumstyperna in (`SeedData`). Databasfilen `hotel.db` skapas i den mapp programmet körs från. Startdata läggs bara in första gången, så rummen dubbleras inte när programmet startas igen.
+Databasen behöver inte skapas för hand. När programmet startar körs migrationerna automatiskt (`Database.Migrate()` i `Program.cs`), och därefter läggs de 15 rummen, de tre rumstyperna och de fyra spabehandlingarna in (`SeedData`). Databasfilen `hotel.db` skapas i den mapp programmet körs från. Startdata läggs bara in första gången, så rummen dubbleras inte när programmet startas igen.
 
 ## Arkitektur
 
@@ -46,10 +46,10 @@ Koden är uppdelad i klasser där varje klass har ett tydligt ansvar:
 |---|---|
 | `Program.cs` | Startar programmet: skapar databasen, lägger in startdata och startar menyn. |
 | `HotelMenu` | Allt som skrivs ut och läses in i konsolen: menyn, frågor, felmeddelanden och kontroll av inmatning. |
-| `HotelRepository` | Allt databasarbete: hämta rum och bokningar, spara bokningar, avboka, räkna ut totalpris och hitta lediga rum. Kontrollerar också att ett rum är ledigt innan en bokning sparas (spärr mot dubbelbokning). |
+| `HotelRepository` | Allt databasarbete: hämta rum och bokningar, spara bokningar, avboka, räkna ut totalpris, hitta lediga rum och boka spabehandlingar. Kontrollerar också att ett rum är ledigt innan en bokning sparas (spärr mot dubbelbokning). |
 | `HotelContext` | EF Core-kontexten. Den berättar vilka klasser som blir tabeller och var databasen ligger. |
-| `SeedData` | Lägger in hotellets 15 rum och rumstyper första gången programmet körs. |
-| `Models` (`Rooms`, `RoomType`, `Guest`, `Booking`) | Entiteterna som blir tabeller i databasen. |
+| `SeedData` | Lägger in hotellets 15 rum, rumstyperna och spabehandlingarna. |
+| `Models` (`Rooms`, `RoomType`, `Guest`, `Booking`, `Treatment`, `SpaBooking`) | Entiteterna som blir tabeller i databasen. |
 
 
 
@@ -105,12 +105,26 @@ classDiagram
         +DateOnly CheckIn
         +DateOnly CheckOut
     }
+    class Treatment {
+        +int Id
+        +string Name
+        +int DurationMinutes
+        +decimal Price
+    }
+    class SpaBooking {
+        +int Id
+        +int GuestId
+        +int TreatmentId
+        +DateOnly Date
+    }
     RoomType "1" --> "*" Rooms : har
     Rooms "1" --> "*" Booking : har
     Guest "1" --> "*" Booking : har
+    Guest "1" --> "*" SpaBooking : har
+    Treatment "1" --> "*" SpaBooking : har
 ```
 
-En rumstyp har många rum, och ett rum har många bokningar över tid. En gäst kan ha många bokningar. `Booking` kopplar ihop en gäst med ett rum under en period. Priset ligger på `Rooms` och inte på `RoomType`, eftersom rum av typen Standard har olika pris (800, 1 000 och 1 200 kr).
+En rumstyp har många rum, och ett rum har många bokningar över tid. En gäst kan ha många bokningar. `Booking` kopplar ihop en gäst med ett rum under en period. Priset ligger på `Rooms` och inte på `RoomType`, eftersom rum av typen Standard har olika pris (800, 1 000 och 1 200 kr). `SpaBooking` fungerar som `Booking` men kopplar ihop en gäst med en behandling (`Treatment`) ett visst datum. En gäst kan ha många spabokningar, och en behandling kan bokas många gånger.
 
 ## GDPR
 
@@ -132,3 +146,7 @@ Databasfilen `hotel.db` innehåller personuppgifter och ligger därför i `.giti
 - Visa bokningar visar alla bokningar, även de som redan har passerat.
 - Klassen för rum heter `Rooms`, och rumstypen heter `Standard`, `Luxury` eller `Bridal` i databasen.
 - Datum anges som `YYYY-MM-DD`. Utcheckningen måste ligga efter incheckningen.
+- En spabokning kräver ingen rumsbokning, och spat har ingen spärr mot att samma behandling bokas flera gånger samma dag. Uppgiften kräver ingen kapacitetskontroll för spat.
+- Spabokningen sparar bara datum, inte klockslag.
+- Uppgiften anger bara tiden för massage (60 minuter). Entré är "per timme" och har därför 60 minuter. Tiderna för pedikyr (30 och 60 minuter) är mina antaganden.
+- En gäst som bara bokar spa skapas utan kontaktuppgifter.
