@@ -3,8 +3,8 @@
     public int Id { get; set; }
     public string Name { get; set; } = "";
 
-    // Kontaktuppgifterna är valfria (string?) eftersom personalen frågar men
-    // gästen inte behöver lämna dem. Se GDPR-avsnittet i README.
+    // E-post och telefon är valfria (string?) eftersom personalen frågar men
+    // gästen inte måste lämna dem. Se GDPR-avsnittet i README.
     public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
 
