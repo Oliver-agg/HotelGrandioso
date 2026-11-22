@@ -30,6 +30,7 @@ public class HotelRepository
                 b.CheckIn < to &&
                 b.CheckOut > from))
             .Include(r => r.RoomType)
+            .OrderBy(r => r.RoomNumber)
             .ToList();
     }
 
